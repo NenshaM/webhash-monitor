@@ -3,6 +3,13 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# Hydra stuff
+.hydra/
+*.log
+
+# Script specific stuff
+hash_store/
+
 # C extensions
 *.so
 
