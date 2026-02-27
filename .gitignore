@@ -7,6 +7,10 @@ __pycache__/
 .hydra/
 *.log
 
+# VS Code stuff
+.vscode/
+*.code-workspace
+
 # Script specific stuff
 hash_store/
 

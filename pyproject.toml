@@ -1,0 +1,22 @@
+[project]
+name = "webhash-monitor"
+version = "0.1.0"
+requires-python = ">=3.10"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle
+    "F",  # pyflakes
+    "I",  # import sorting
+    "B",  # bugbear
+    "C4", # comprehensions
+    "UP", # pyupgrade
+]
+fixable = ["ALL"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -15,8 +15,8 @@ The application workflow:
 Configuration is managed using Hydra, supporting flexible CLI and YAML overrides.
 
 Usage Examples:
-    python main.py url=https://example.com
-    python main.py urls='["https://example.com", "https://example.org"]'
+    python main.py url=http://example.com
+    python main.py urls='["http://example.com", "http://example.org"]'
 
 Author: NenshaM
 License: GPL v3
@@ -26,8 +26,8 @@ import hashlib
 import logging
 from pathlib import Path
 
-import requests
 import hydra
+import requests
 from omegaconf import DictConfig
 
 # -----------------------------------------------------------------------------
@@ -74,9 +74,7 @@ def generate_hash_path(url: str, hash_dir: Path) -> Path:
 
 
 def fetch_webpage(
-    url: str,
-    headers: dict[str, str] | None = None,
-    timeout: int = 10
+    url: str, headers: dict[str, str] | None = None, timeout: int = 10
 ) -> bytes | None:
     """
     Fetch webpage content using a secure GET request.
@@ -99,10 +97,7 @@ def fetch_webpage(
 
 
 def check_website_change(
-    url: str,
-    hash_dir: Path,
-    headers: dict[str, str] | None = None,
-    timeout: int = 10
+    url: str, hash_dir: Path, headers: dict[str, str] | None = None, timeout: int = 10
 ) -> None:
     """
     Detect whether a webpage has changed since the last run.
@@ -145,9 +140,7 @@ def check_website_change(
 # Hydra Entry Point
 # -----------------------------------------------------------------------------
 @hydra.main(
-    version_base=None,
-    config_path=str(Path(__file__).parent),
-    config_name="config"
+    version_base=None, config_path=str(Path(__file__).parent), config_name="config"
 )
 def main(cfg: DictConfig) -> None:
     """
@@ -163,7 +156,7 @@ def main(cfg: DictConfig) -> None:
         urls                    : list[str] (optional)
 
     CLI Examples:
-        python main.py url=https://example.com
+        python main.py url=http://example.com
         python main.py urls='["https://a.com", "https://b.com"]'
     """
     hash_dir = Path(cfg.options.hash_dir)
@@ -172,19 +165,11 @@ def main(cfg: DictConfig) -> None:
 
     if cfg.get("url"):
         check_website_change(
-            cfg.url,
-            hash_dir=hash_dir,
-            headers=headers,
-            timeout=timeout
+            cfg.url, hash_dir=hash_dir, headers=headers, timeout=timeout
         )
     elif cfg.get("urls"):
         for u in cfg.urls:
-            check_website_change(
-                u,
-                hash_dir=hash_dir,
-                headers=headers,
-                timeout=timeout
-            )
+            check_website_change(u, hash_dir=hash_dir, headers=headers, timeout=timeout)
     else:
         logger.error("No URL provided. Use 'url=' or 'urls=' argument.")
 
