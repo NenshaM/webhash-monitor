@@ -1,6 +1,7 @@
 ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![Code style: PEP 8](https://img.shields.io/badge/code%20style-pep8-orange.svg)
+![CI](https://github.com/NenshaM/webhash-monitor/actions/workflows/ci.yml/badge.svg)
 ![Last Commit](https://img.shields.io/github/last-commit/NenshaM/webhash-monitor)
 
 # WebHash Monitor
@@ -40,12 +41,12 @@ pip install -r src/requirements.txt
 
 ### Single URL Monitoring
 ```bash
-python src/main.py url=https://example.com
+python src/webhash_monitor/main.py url=http://example.com
 ```
 
 ### Batch URL Monitoring
 ```bash
-python src/main.py urls='["https://example.com","https://example.org"]'
+python src/webhash_monitor/main.py urls='["http://example.com","http://example.org"]'
 ```
 
 ## Configuration
@@ -70,13 +71,13 @@ request_headers:
 ### Configuration Overrides
 ```bash
 # Custom timeout
-python src/main.py url=https://example.com options.timeout_seconds=30
+python src/webhash_monitor/main.py url=http://example.com options.timeout_seconds=30
 
 # Custom hash directory
-python src/main.py url=https://example.com options.hash_dir="./custom_hashes"
+python src/webhash_monitor/main.py url=http://example.com options.hash_dir="./custom_hashes"
 
 # Custom user agent
-python src/main.py url=https://example.com request_headers.User-Agent="CustomBot/1.0"
+python src/webhash_monitor/main.py url=http://example.com request_headers.User-Agent="CustomBot/1.0"
 ```
 
 ## Workflow

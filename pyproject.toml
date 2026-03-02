@@ -1,6 +1,6 @@
 [project]
 name = "webhash-monitor"
-version = "0.1.0"
+version = "1.1.0"
 requires-python = ">=3.10"
 
 [tool.ruff]
@@ -9,7 +9,8 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle errors
     "F",  # pyflakes
     "I",  # import sorting
     "B",  # bugbear
