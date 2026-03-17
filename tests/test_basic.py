@@ -16,6 +16,10 @@ class DummyResponse:
         if self.status_code != 200:
             raise requests.HTTPError("bad status")
 
+    def iter_content(self, chunk_size: int = 4096):
+        for i in range(0, len(self.content), chunk_size):
+            yield self.content[i : i + chunk_size]
+
 
 @pytest.fixture
 def tmp_hash_dir(tmp_path):
@@ -42,7 +46,7 @@ def test_fetch_webpage_success(monkeypatch):
     monitor = WebHashMonitor(Path("/does/not/matter"))
     content = b"abc"
 
-    def fake_get(url, headers, timeout):
+    def fake_get(url, headers, timeout, stream):
         return DummyResponse(content)
 
     monkeypatch.setattr(requests, "get", fake_get)
@@ -52,7 +56,7 @@ def test_fetch_webpage_success(monkeypatch):
 def test_fetch_webpage_failure(monkeypatch, caplog):
     monitor = WebHashMonitor(Path("/tmp"))
 
-    def fake_get(url, headers, timeout):
+    def fake_get(url, headers, timeout, stream):
         raise requests.RequestException("fail")
 
     monkeypatch.setattr(requests, "get", fake_get)

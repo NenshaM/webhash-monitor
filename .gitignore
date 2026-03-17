@@ -6,6 +6,7 @@ __pycache__/
 # Hydra stuff
 .hydra/
 *.log
+outputs/
 
 # VS Code stuff
 .vscode/
