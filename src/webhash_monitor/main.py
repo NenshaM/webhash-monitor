@@ -2,7 +2,7 @@
 """
 main.py
 
-WebHash Monitor v1.1.0
+WebHash Monitor v1.2.0
 
 A secure, lightweight webpage change detection tool using SHA256 hashing.
 
@@ -43,17 +43,29 @@ def main(cfg: DictConfig) -> None:
     Instantiates :class:`WebHashMonitor` and delegates to it.
 
     Config keys:
-        options.timeout_seconds : int
-        options.hash_dir        : str
-        request_headers         : dict
-        url                     : str (single URL, optional)
-        urls                    : list[str] (optional)
+        options.timeout_seconds  : int
+        options.hash_dir         : str
+        options.max_dir_size     : int
+        options.max_urls         : int
+        options.max_retries      : int
+        options.max_content_size : int
+        request_headers          : dict
+        url                      : str (single URL, optional)
+        urls                     : list[str] (optional)
     """
     hash_dir = Path(cfg.options.hash_dir)
     timeout = cfg.options.timeout_seconds
     headers = cfg.get("request_headers", {})
 
-    monitor = WebHashMonitor(hash_dir=hash_dir, timeout=timeout, headers=headers)
+    monitor = WebHashMonitor(
+        hash_dir=hash_dir,
+        timeout=timeout,
+        headers=headers,
+        max_dir_size=cfg.options.max_dir_size,
+        max_urls=cfg.options.max_urls,
+        retries=cfg.options.max_retries,
+        max_content_size=cfg.options.max_content_size,
+    )
 
     if cfg.get("url"):
         monitor.check_website_change(cfg.url)
