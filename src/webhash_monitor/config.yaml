@@ -17,17 +17,14 @@ options:
   # Maximal URLS allowed to check
   max_urls: 1000
 
-  # Maximal directory size (50MB)
-  max_dir_size: 52428800
-
   # Maximal size of the content returned by a request (50MB)
   max_content_size: 52428800
 
   # How often should the request repeated on failure
   max_retries: 3
 
-  # Directory where webpage hashes are stored
-  hash_dir: "./hash_store"
+  # SQLite3 database where webpage hashes are stored
+  db_path: "./hashes.db"
 
 
 request_headers:

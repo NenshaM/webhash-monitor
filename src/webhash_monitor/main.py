@@ -2,14 +2,14 @@
 """
 main.py
 
-WebHash Monitor v1.2.0
+WebHash Monitor v1.3.0
 
 A secure, lightweight webpage change detection tool using SHA256 hashing.
 
 The application workflow:
     1. Downloads webpage content securely via HTTP(S).
     2. Computes a SHA256 hash of the response body.
-    3. Stores the hash locally in a configurable directory.
+    3. Stores the hash locally in a SQLite database.
     4. Detects changes between runs and logs them for auditing.
 
 Configuration is managed using Hydra, supporting flexible CLI and YAML overrides.
@@ -44,8 +44,7 @@ def main(cfg: DictConfig) -> None:
 
     Config keys:
         options.timeout_seconds  : int
-        options.hash_dir         : str
-        options.max_dir_size     : int
+        options.db_path          : str
         options.max_urls         : int
         options.max_retries      : int
         options.max_content_size : int
@@ -53,15 +52,14 @@ def main(cfg: DictConfig) -> None:
         url                      : str (single URL, optional)
         urls                     : list[str] (optional)
     """
-    hash_dir = Path(cfg.options.hash_dir)
+    db_path = Path(cfg.options.db_path)
     timeout = cfg.options.timeout_seconds
     headers = cfg.get("request_headers", {})
 
     monitor = WebHashMonitor(
-        hash_dir=hash_dir,
+        db_path=db_path,
         timeout=timeout,
         headers=headers,
-        max_dir_size=cfg.options.max_dir_size,
         max_urls=cfg.options.max_urls,
         retries=cfg.options.max_retries,
         max_content_size=cfg.options.max_content_size,

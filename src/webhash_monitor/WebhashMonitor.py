@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-main.py
+WbhashMonitor.py
 
-WebHash Monitor v1.2.0
+WebHash Monitor v1.3.0
 
 A secure, lightweight webpage change detection tool using SHA256 hashing.
 
 The application workflow:
     1. Downloads webpage content securely via HTTP(S).
     2. Computes a SHA256 hash of the response body.
-    3. Stores the hash locally in a configurable directory.
+    3. Stores the hash locally in a SQLite database.
     4. Detects changes between runs and logs them for auditing.
 
 Configuration is managed using Hydra, supporting flexible CLI and YAML overrides.
@@ -24,6 +24,7 @@ License: GPL v3
 
 import hashlib
 import logging
+import sqlite3
 import time
 from pathlib import Path
 from urllib.parse import urlparse
@@ -57,7 +58,7 @@ class WebHashMonitor:
     Initialize the monitor:
 
         monitor = WebHashMonitor(
-            hash_dir=Path("/path/to/hashes"),
+            db_path=Path("/path/to/database"),
             timeout=10,
             headers={"User-Agent": "WebHashMonitor/1.2.0"},
             max_dir_size=50*1024*1024,
@@ -80,42 +81,50 @@ class WebHashMonitor:
     -------
     - compute_sha256(content: bytes) -> str
         Compute SHA256 hash of given content.
-    - generate_hash_path(url: str) -> Path
-        Determine the hash file path for a URL.
     - fetch_webpage(url: str) -> bytes | None
         Download a webpage with streaming, retries, and size limits.
-    - enforce_url_limit() -> None
+    - cleanup_oldest_entries() -> None
         Ensure the number of tracked URLs does not exceed `max_urls`.
-    - cleanup_oldest_files() -> None
-        Delete oldest hash files to maintain directory size limits.
     - check_website_change(url: str) -> str
         Determine whether a webpage has changed and update stored hash.
     """
 
     def __init__(
         self,
-        hash_dir: Path,
+        db_path: Path,
         timeout: int = 10,
         headers: dict[str, str] | None = None,
-        max_dir_size: int = 50 * 1024 * 1024,  # 50 MB
         max_urls: int = 1000,
         retries: int = 3,
         max_content_size: int = 50 * 1024 * 1024,  # 50 MB
     ):
-        self.hash_dir = hash_dir
+        self.db_path = db_path
         self.timeout = timeout
         self.headers = headers or {}
 
-        self.max_dir_size = max_dir_size
         self.max_urls = max_urls
         self.retries = retries
         self.max_content_size = max_content_size
+
+        self._init_db()
+
+    def _init_db(self):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                    CREATE TABLE IF NOT EXISTS hashes (
+                    url_hash PRIMARY KEY,
+                    content_hash TEXT NOT NULL,
+                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
 
     # ------------------------------------------------------------------
     # helpers
     # ------------------------------------------------------------------
     @staticmethod
-    def compute_sha256(content: bytes) -> str:
+    def compute_sha256(content: bytes | str) -> str:
         """
         Compute the SHA256 hash of the given content.
 
@@ -134,29 +143,10 @@ class WebHashMonitor:
         - The content is fully buffered in memory before hashing.
         - For very large content, consider streaming-based hashing.
         """
+        if isinstance(content, str):
+            return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
         return hashlib.sha256(content).hexdigest()
-
-    def generate_hash_path(self, url: str) -> Path:
-        """
-        Generate a filesystem-safe path for storing a hash for a URL.
-
-        Parameters
-        ----------
-        url : str
-            The URL for which to generate the hash file path.
-
-        Returns
-        -------
-        Path
-            The path within `hash_dir` where the SHA256 hash of the URL is stored.
-
-        Notes
-        -----
-        - Uses SHA256(url) as the filename to avoid unsafe characters.
-        - Ensures deterministic mapping: same URL - same path.
-        """
-        url_digest = hashlib.sha256(url.encode("utf-8")).hexdigest()
-        return self.hash_dir / f"{url_digest}.hash"
 
     # ------------------------------------------------------------------
     # network
@@ -222,47 +212,37 @@ class WebHashMonitor:
     # ------------------------------------------------------------------
     # high-level monitoring
     # ------------------------------------------------------------------
-    def enforce_url_limit(self):
+    def cleanup_oldest_entries(self, conn: sqlite3.Connection) -> None:
         """
-        Ensure the number of tracked URLs does not exceed `max_urls`.
+        Remove oldest hash files to ensure a maximum number of `max_urls`.
 
-        Raises
-        ------
-        RuntimeError
-            If the current number of hash files is >= `max_urls`.
+        Parameters
+        ----------
+        conn : Connection
+            SQLite database connection
 
-        Notes
-        -----
-        - Only counts `.hash` files in `hash_dir`.
         """
-        existing_files = list(self.hash_dir.glob("*.hash"))
-        if len(existing_files) >= self.max_urls:
-            raise RuntimeError("Maximum number of tracked URLs reached")
+        cur = conn.execute("SELECT COUNT(*) FROM hashes")
+        count = cur.fetchone()[0]
 
-    def cleanup_oldest_files(self):
-        """
-        Remove oldest hash files to ensure `hash_dir` does not exceed `max_dir_size`.
+        if count <= self.max_urls:
+            return
 
-        Notes
-        -----
-        - Oldest files are determined by filesystem modification time (mtime).
-        - Deletes files until total directory size <= `max_dir_size`.
-        - Logs a warning if cleanup is triggered.
-        - Updates total size decrementally to avoid repeated rescans.
-        """
-        files = sorted(self.hash_dir.glob("*.hash"), key=lambda f: f.stat().st_mtime)
+        to_delete = count - self.max_urls
 
-        total_size = sum(f.stat().st_size for f in files)
+        logger.warning("Cleaning up %d old entries", to_delete)
 
-        if total_size > self.max_dir_size and files:
-            logger.warning("Maximal directory size reached. Cleaning up old files")
-
-        while total_size > self.max_dir_size and files:
-            oldest = files.pop(0)
-            logger.warning(f"Cleaning up {oldest}")
-            size = oldest.stat().st_size
-            oldest.unlink()
-            total_size -= size
+        conn.execute(
+            """
+                DELETE FROM hashes
+                WHERE url_hash IN (
+                    SELECT url_hash FROM hashes
+                    ORDER BY last_updated ASC
+                    LIMIT ?
+                )
+            """,
+            (to_delete,),
+        )
 
     def check_website_change(self, url: str) -> str:
         """
@@ -281,38 +261,52 @@ class WebHashMonitor:
             - "unchanged"   → Content has not changed since last run.
             - "changed"     → Content has changed since last run.
             - "fetch_error" → Page could not be retrieved.
-
-        Notes
-        -----
-        - Fetches the page content with `fetch_webpage()`.
-        - Computes SHA256 hash of the page.
-        - Cleans up old hash files if directory exceeds `max_dir_size`.
-        - Enforces `max_urls` before creating a new hash file.
-        - Logs changes (first run, changed, unchanged) for auditing.
         """
         content = self.fetch_webpage(url)
         if content is None:
             return "fetch_error"
 
         current_hash = self.compute_sha256(content)
-        hash_path = self.generate_hash_path(url)
+        url_hash = self.compute_sha256(url)
 
-        self.hash_dir.mkdir(parents=True, exist_ok=True)
+        with sqlite3.connect(self.db_path) as conn:
+            self.cleanup_oldest_entries(conn)
 
-        self.cleanup_oldest_files()
-        self.enforce_url_limit()
+            cur = conn.execute(
+                """
+                    SELECT content_hash FROM hashes WHERE url_hash = ? LIMIT 1
+                """,
+                (url_hash,),
+            )
+            row = cur.fetchone()
 
-        if hash_path.exists():
-            stored_hash = hash_path.read_text().strip()
-            if stored_hash == current_hash:
-                logger.info("[UNCHANGED] %s", url)
-                status = "unchanged"
+            if row:
+                if row[0] == current_hash:
+                    logger.info("[UNCHANGED] %s", url)
+                    status = "unchanged"
+                else:
+                    logger.warning("[CHANGED] %s", url)
+                    status = "changed"
+
+                conn.execute(
+                    """
+                        UPDATE hashes
+                        SET content_hash = ?, last_updated = CURRENT_TIMESTAMP
+                        WHERE url_hash = ?
+                    """,
+                    (current_hash, url_hash),
+                )
+
             else:
-                logger.warning("[CHANGED] %s", url)
-                status = "changed"
-        else:
-            logger.info("[FIRST RUN] %s", url)
-            status = "first_run"
+                logger.info("[FIRST RUN] %s", url)
+                status = "first_run"
 
-        hash_path.write_text(current_hash)
+                conn.execute(
+                    """
+                        INSERT INTO hashes (url_hash, content_hash)
+                        VALUES (?, ?)
+                    """,
+                    (url_hash, current_hash),
+                )
+
         return status

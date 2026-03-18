@@ -1,5 +1,5 @@
 import hashlib
-from pathlib import Path
+import sqlite3
 
 import pytest
 import requests
@@ -22,9 +22,9 @@ class DummyResponse:
 
 
 @pytest.fixture
-def tmp_hash_dir(tmp_path):
+def tmp_hash_db(tmp_path):
     """Provide a temporary directory used as the hash storage."""
-    return tmp_path / "hashes"
+    return tmp_path / "hashes.db"
 
 
 def test_compute_sha256():
@@ -33,17 +33,8 @@ def test_compute_sha256():
     assert WebHashMonitor.compute_sha256(data) == expected
 
 
-def test_generate_hash_path(tmp_hash_dir):
-    monitor = WebHashMonitor(tmp_hash_dir)
-    url = "http://example.com"
-    p = monitor.generate_hash_path(url)
-    assert p.parent == tmp_hash_dir
-    assert p.suffix == ".hash"
-    assert len(p.name) > len(".hash")
-
-
-def test_fetch_webpage_success(monkeypatch):
-    monitor = WebHashMonitor(Path("/does/not/matter"))
+def test_fetch_webpage_success(monkeypatch, tmp_hash_db):
+    monitor = WebHashMonitor(tmp_hash_db)
     content = b"abc"
 
     def fake_get(url, headers, timeout, stream):
@@ -53,8 +44,8 @@ def test_fetch_webpage_success(monkeypatch):
     assert monitor.fetch_webpage("http://foo") == content
 
 
-def test_fetch_webpage_failure(monkeypatch, caplog):
-    monitor = WebHashMonitor(Path("/tmp"))
+def test_fetch_webpage_failure(monkeypatch, caplog, tmp_hash_db):
+    monitor = WebHashMonitor(tmp_hash_db)
 
     def fake_get(url, headers, timeout, stream):
         raise requests.RequestException("fail")
@@ -65,47 +56,78 @@ def test_fetch_webpage_failure(monkeypatch, caplog):
     assert "Failed to fetch" in caplog.text
 
 
-def test_check_website_change_first_run(tmp_hash_dir, monkeypatch):
-    monitor = WebHashMonitor(tmp_hash_dir)
+def test_check_website_change_first_run(tmp_hash_db, monkeypatch):
+    monitor = WebHashMonitor(tmp_hash_db)
     content = b"first content"
     monkeypatch.setattr(monitor, "fetch_webpage", lambda url: content)
 
-    status = monitor.check_website_change("http://a")
+    url = "http://a"
+    url_hash = monitor.compute_sha256(url)
+    status = monitor.check_website_change(url)
     assert status == "first_run"
-    # hash file created correctly
-    path = monitor.generate_hash_path("http://a")
-    assert path.exists()
-    assert path.read_text() == WebHashMonitor.compute_sha256(content)
+
+    # verify DB entry
+    with sqlite3.connect(tmp_hash_db) as conn:
+        row = conn.execute(
+            "SELECT content_hash FROM hashes WHERE url_hash = ?", (url_hash,)
+        ).fetchone()
+
+    assert row is not None
+    assert row[0] == WebHashMonitor.compute_sha256(content)
 
 
-def test_check_website_change_unchanged(tmp_hash_dir, monkeypatch):
-    monitor = WebHashMonitor(tmp_hash_dir)
+def test_check_website_change_unchanged(tmp_hash_db, monkeypatch):
+    monitor = WebHashMonitor(tmp_hash_db)
+
     content = b"same"
-    # prepare existing hash file
-    path = monitor.generate_hash_path("http://a")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(WebHashMonitor.compute_sha256(content))
+    url = "http://a"
+
+    # pre-insert existing hash
+    with sqlite3.connect(tmp_hash_db) as conn:
+        monitor._init_db()
+        conn.execute(
+            "INSERT INTO hashes (url_hash, content_hash) VALUES (?, ?)",
+            (monitor.compute_sha256(url), WebHashMonitor.compute_sha256(content)),
+        )
 
     monkeypatch.setattr(monitor, "fetch_webpage", lambda url: content)
-    status = monitor.check_website_change("http://a")
+
+    status = monitor.check_website_change(url)
     assert status == "unchanged"
 
 
-def test_check_website_change_changed(tmp_hash_dir, monkeypatch):
-    monitor = WebHashMonitor(tmp_hash_dir)
+def test_check_website_change_changed(tmp_hash_db, monkeypatch):
+    monitor = WebHashMonitor(tmp_hash_db)
+
     old = b"old"
     new = b"new"
-    path = monitor.generate_hash_path("http://a")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(WebHashMonitor.compute_sha256(old))
+    url = "http://a"
+
+    # pre-insert old hash
+    with sqlite3.connect(tmp_hash_db) as conn:
+        monitor._init_db()
+        conn.execute(
+            "INSERT INTO hashes (url_hash, content_hash) VALUES (?, ?)",
+            (monitor.compute_sha256(url), WebHashMonitor.compute_sha256(old)),
+        )
 
     monkeypatch.setattr(monitor, "fetch_webpage", lambda url: new)
-    status = monitor.check_website_change("http://a")
+
+    status = monitor.check_website_change(url)
+    url_hash = monitor.compute_sha256(url)
     assert status == "changed"
 
+    # verify DB updated
+    with sqlite3.connect(tmp_hash_db) as conn:
+        row = conn.execute(
+            "SELECT content_hash FROM hashes WHERE url_hash = ?", (url_hash,)
+        ).fetchone()
 
-def test_check_website_change_fetch_error(tmp_hash_dir, monkeypatch):
-    monitor = WebHashMonitor(tmp_hash_dir)
+    assert row[0] == WebHashMonitor.compute_sha256(new)
+
+
+def test_check_website_change_fetch_error(tmp_hash_db, monkeypatch):
+    monitor = WebHashMonitor(tmp_hash_db)
     monkeypatch.setattr(monitor, "fetch_webpage", lambda url: None)
     status = monitor.check_website_change("http://a")
     assert status == "fetch_error"
