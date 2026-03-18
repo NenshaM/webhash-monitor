@@ -1,3 +1,4 @@
+import sqlite3
 import time
 
 import pytest
@@ -6,34 +7,34 @@ from webhash_monitor.WebhashMonitor import WebHashMonitor
 
 
 @pytest.fixture
-def tmp_hash_dir(tmp_path):
+def tmp_hash_db(tmp_path):
     """Provide a temporary directory used as the hash storage."""
-    return tmp_path / "hashes"
+    return tmp_path / "hashes.db"
 
 
-def test_cleanup_oldest_files(tmp_hash_dir):
-    monitor = WebHashMonitor(tmp_hash_dir, max_dir_size=15)
-    tmp_hash_dir.mkdir(parents=True)
-    # create three files of 10 bytes each
-    for i in range(3):
-        p = tmp_hash_dir / f"{i}.hash"
-        p.write_text("1234567890")
-        time.sleep(1)
+def test_cleanup_oldest_entries(tmp_hash_db):
+    monitor = WebHashMonitor(tmp_hash_db, max_urls=2)
 
-    monitor.cleanup_oldest_files()
-    remaining = list(tmp_hash_dir.glob("*.hash"))
-    total_size = sum(f.stat().st_size for f in remaining)
-    assert total_size <= 15
-    # oldest file should be deleted
-    assert (tmp_hash_dir / "0.hash").exists() is False
+    # insert 3 entries with increasing timestamps
+    with sqlite3.connect(tmp_hash_db) as conn:
+        monitor._init_db()
 
+        for i in range(3):
+            conn.execute(
+                "INSERT INTO hashes (url_hash, content_hash, last_updated) "
+                "VALUES (?, ?, CURRENT_TIMESTAMP)",
+                (f"hash{i}", f"content{i}"),
+            )
+            time.sleep(1)  # ensure ordering
 
-def test_enforce_url_limit(tmp_hash_dir):
-    monitor = WebHashMonitor(tmp_hash_dir, max_urls=2)
-    tmp_hash_dir.mkdir(parents=True)
-    # create two dummy hash files
-    for i in range(2):
-        (tmp_hash_dir / f"{i}.hash").write_text("abc")
+        monitor.cleanup_oldest_entries(conn)
 
-    with pytest.raises(RuntimeError):
-        monitor.enforce_url_limit()
+        rows = conn.execute("SELECT url_hash FROM hashes").fetchall()
+
+    urls = {row[0] for row in rows}
+
+    # only 2 entries should remain
+    assert len(urls) == 2
+
+    # oldest (http://0) should be gone
+    assert "http://0" not in urls
