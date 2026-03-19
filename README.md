@@ -29,7 +29,7 @@ WebHash Monitor provides deterministic detection of webpage modifications throug
 ```bash
 git clone https://github.com/NenshaM/webhash-monitor.git
 cd webhash-monitor
-pip install -r src/requirements.txt
+pip install -r requirements.txt
 ```
 
 ### Dependencies
@@ -73,11 +73,11 @@ request_headers:
 # Custom timeout
 python src/webhash_monitor/main.py url=http://example.com options.timeout_seconds=30
 
-# Custom hash directory
-python src/webhash_monitor/main.py url=http://example.com options.hash_dir="./custom_hashes"
-
 # Custom user agent
 python src/webhash_monitor/main.py url=http://example.com request_headers.User-Agent="CustomBot/1.0"
+
+# PushBullet Callback
+python src/webhash_monitor/main.py url=http://example.com callback=pushbullet
 ```
 
 ## Workflow
@@ -108,6 +108,4 @@ Change events are logged at WARNING level for automated alerting integration.
 ## Limitations / To Do's
 
 - **Content-only detection**: Monitors raw content; style/layout changes without HTML modification are not detected
-- **No webhook integration**: Results must be polled or integrated via external scheduling
 - **No authentication**: Requires pre-configuration of auth tokens via headers if protected resources are monitored
-- **Storage overhead**: Hash files require filesystem access; not suitable for ephemeral environments without persistent storage
