@@ -1,4 +1,5 @@
 hydra-core>=1.3,<2.0
 requests>=2.31,<3.0
-ruff
-pytest
+python-dotenv>=1.2.2
+ruff>=0.14.4
+pytest>=8.3.4

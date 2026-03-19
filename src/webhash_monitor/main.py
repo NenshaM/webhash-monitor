@@ -2,8 +2,6 @@
 """
 main.py
 
-WebHash Monitor v1.3.0
-
 A secure, lightweight webpage change detection tool using SHA256 hashing.
 
 The application workflow:
@@ -65,11 +63,20 @@ def main(cfg: DictConfig) -> None:
         max_content_size=cfg.options.max_content_size,
     )
 
+    callback = None
+    if cfg.get("callback"):
+        if str(cfg.callback).lower() == "pushbullet":
+            from callbacks import send_pushbullet_note
+
+            callback = send_pushbullet_note
+        else:
+            print("Invalid callback: try 'pushbullet")
+
     if cfg.get("url"):
-        monitor.check_website_change(cfg.url)
+        monitor.check_website_change(cfg.url, callback=callback)
     elif cfg.get("urls"):
         for u in cfg.urls:
-            monitor.check_website_change(u)
+            monitor.check_website_change(url=u, callback=callback)
     else:
         print("No URL provided. Use 'url=' or 'urls=' argument.")
 

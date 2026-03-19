@@ -26,7 +26,6 @@ options:
   # SQLite3 database where webpage hashes are stored
   db_path: "./hashes.db"
 
-
 request_headers:
   # Standard headers to mimic a real browser request
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
@@ -42,3 +41,4 @@ request_headers:
 # Add these so Hydra knows about the keys
 url: null          # single URL
 urls: []           # list of URLs
+callback: null     # callback name, defined in callbacks.py

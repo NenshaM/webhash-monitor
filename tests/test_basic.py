@@ -4,7 +4,7 @@ import sqlite3
 import pytest
 import requests
 
-from webhash_monitor.WebhashMonitor import WebHashMonitor
+from webhash_monitor.WebhashMonitor import Status, WebHashMonitor
 
 
 class DummyResponse:
@@ -64,7 +64,7 @@ def test_check_website_change_first_run(tmp_hash_db, monkeypatch):
     url = "http://a"
     url_hash = monitor.compute_sha256(url)
     status = monitor.check_website_change(url)
-    assert status == "first_run"
+    assert status == Status.FIRST_RUN
 
     # verify DB entry
     with sqlite3.connect(tmp_hash_db) as conn:
@@ -93,7 +93,7 @@ def test_check_website_change_unchanged(tmp_hash_db, monkeypatch):
     monkeypatch.setattr(monitor, "fetch_webpage", lambda url: content)
 
     status = monitor.check_website_change(url)
-    assert status == "unchanged"
+    assert status == Status.UNCHANGED
 
 
 def test_check_website_change_changed(tmp_hash_db, monkeypatch):
@@ -115,7 +115,7 @@ def test_check_website_change_changed(tmp_hash_db, monkeypatch):
 
     status = monitor.check_website_change(url)
     url_hash = monitor.compute_sha256(url)
-    assert status == "changed"
+    assert status == Status.CHANGED
 
     # verify DB updated
     with sqlite3.connect(tmp_hash_db) as conn:
@@ -130,4 +130,37 @@ def test_check_website_change_fetch_error(tmp_hash_db, monkeypatch):
     monitor = WebHashMonitor(tmp_hash_db)
     monkeypatch.setattr(monitor, "fetch_webpage", lambda url: None)
     status = monitor.check_website_change("http://a")
-    assert status == "fetch_error"
+    assert status == Status.FETCH_ERROR
+
+
+def test_check_website_onchange_callback(tmp_hash_db, monkeypatch):
+    monitor = WebHashMonitor(tmp_hash_db)
+
+    old = b"old"
+    new = b"new"
+    url = "http://a"
+
+    # pre-insert old hash
+    with sqlite3.connect(tmp_hash_db) as conn:
+        monitor._init_db()
+        conn.execute(
+            "INSERT INTO hashes (url_hash, content_hash) VALUES (?, ?)",
+            (monitor.compute_sha256(url), WebHashMonitor.compute_sha256(old)),
+        )
+
+    monkeypatch.setattr(monitor, "fetch_webpage", lambda url: new)
+
+    cb_successful = False
+
+    def callback(url: str):
+        nonlocal cb_successful
+        cb_successful = True
+
+    status = monitor.check_website_change(url=url, callback=callback)
+    assert status == Status.CHANGED
+    assert cb_successful
+
+    cb_successful = False
+    status = monitor.check_website_change(url=url, callback=callback)
+    assert status == Status.UNCHANGED
+    assert not cb_successful

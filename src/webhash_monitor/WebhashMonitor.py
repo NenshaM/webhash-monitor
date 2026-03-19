@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-WbhashMonitor.py
-
-WebHash Monitor v1.3.0
+WebhashMonitor.py
 
 A secure, lightweight webpage change detection tool using SHA256 hashing.
 
@@ -12,12 +10,6 @@ The application workflow:
     3. Stores the hash locally in a SQLite database.
     4. Detects changes between runs and logs them for auditing.
 
-Configuration is managed using Hydra, supporting flexible CLI and YAML overrides.
-
-Usage Examples:
-    python main.py url=http://example.com
-    python main.py urls='["http://example.com", "http://example.org"]'
-
 Author: NenshaM
 License: GPL v3
 """
@@ -26,19 +18,22 @@ import hashlib
 import logging
 import sqlite3
 import time
+from collections.abc import Callable
+from enum import Enum
 from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
 
+
 # -----------------------------------------------------------------------------
-# Logging Configuration
+# WebHashMonitor Webpage Status
 # -----------------------------------------------------------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
-logger = logging.getLogger(__name__)
+class Status(Enum):
+    CHANGED = "changed"
+    UNCHANGED = "unchanged"
+    FIRST_RUN = "first_run"
+    FETCH_ERROR = "fetch_error"
 
 
 # -----------------------------------------------------------------------------
@@ -106,7 +101,15 @@ class WebHashMonitor:
         self.retries = retries
         self.max_content_size = max_content_size
 
+        self.logger = self._init_logger()
         self._init_db()
+
+    def _init_logger(self) -> logging.Logger:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(message)s",
+        )
+        return logging.getLogger(self.__class__.__name__)
 
     def _init_db(self):
         with sqlite3.connect(self.db_path) as conn:
@@ -179,7 +182,7 @@ class WebHashMonitor:
         """
         parsed = urlparse(url)
         if parsed.scheme != "https":
-            logger.warning("Non-HTTPS URL: %s", url)
+            self.logger.warning("Non-HTTPS URL: %s", url)
 
         # prohibit logging injection
         url = url.replace("\n", "").replace("\r", "").strip()
@@ -206,7 +209,7 @@ class WebHashMonitor:
                         time.sleep(0.5 * attempt)
 
         except (requests.RequestException, ValueError) as e:
-            logger.error("Failed to fetch %s: %s", url, e)
+            self.logger.error("Failed to fetch %s: %s", url, e)
             return None
 
     # ------------------------------------------------------------------
@@ -230,7 +233,7 @@ class WebHashMonitor:
 
         to_delete = count - self.max_urls
 
-        logger.warning("Cleaning up %d old entries", to_delete)
+        self.logger.warning("Cleaning up %d old entries", to_delete)
 
         conn.execute(
             """
@@ -244,7 +247,9 @@ class WebHashMonitor:
             (to_delete,),
         )
 
-    def check_website_change(self, url: str) -> str:
+    def check_website_change(
+        self, url: str, callback: Callable | None = None
+    ) -> Status:
         """
         Check if a webpage has changed since the last run and update its hash.
 
@@ -252,19 +257,21 @@ class WebHashMonitor:
         ----------
         url : str
             The webpage URL to monitor.
+        callback: Callable, optional
+            Callback function which gets executed if status is `Status.CHANGED`
 
         Returns
         -------
-        str
+        Status
             Status of the page after comparison:
-            - "first_run"   → URL was not previously tracked.
-            - "unchanged"   → Content has not changed since last run.
-            - "changed"     → Content has changed since last run.
-            - "fetch_error" → Page could not be retrieved.
+            - Status.FIRST_RUN   → URL was not previously tracked.
+            - Status.UNCHANGED   → Content has not changed since last run.
+            - Status.CHANGED     → Content has changed since last run.
+            - Status.FETCH_ERROR → Page could not be retrieved.
         """
         content = self.fetch_webpage(url)
         if content is None:
-            return "fetch_error"
+            return Status.FETCH_ERROR
 
         current_hash = self.compute_sha256(content)
         url_hash = self.compute_sha256(url)
@@ -282,11 +289,11 @@ class WebHashMonitor:
 
             if row:
                 if row[0] == current_hash:
-                    logger.info("[UNCHANGED] %s", url)
-                    status = "unchanged"
+                    self.logger.info("[UNCHANGED] %s", url)
+                    status = Status.UNCHANGED
                 else:
-                    logger.warning("[CHANGED] %s", url)
-                    status = "changed"
+                    self.logger.warning("[CHANGED] %s", url)
+                    status = Status.CHANGED
 
                 conn.execute(
                     """
@@ -298,8 +305,8 @@ class WebHashMonitor:
                 )
 
             else:
-                logger.info("[FIRST RUN] %s", url)
-                status = "first_run"
+                self.logger.info("[FIRST RUN] %s", url)
+                status = Status.FIRST_RUN
 
                 conn.execute(
                     """
@@ -308,5 +315,11 @@ class WebHashMonitor:
                     """,
                     (url_hash, current_hash),
                 )
+
+        if status == Status.CHANGED and isinstance(callback, Callable):
+            try:
+                callback(url)
+            except Exception as e:
+                self.logger.error(f"Callback failed ({e})")
 
         return status
