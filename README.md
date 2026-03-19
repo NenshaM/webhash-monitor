@@ -57,7 +57,10 @@ Configuration is managed through `src/config.yaml` with Hydra CLI overrides:
 ```yaml
 options:
   timeout_seconds: 11          # HTTP request timeout
-  hash_dir: "./hash_store"     # Local hash storage directory
+  max_urls: 1000               # Maximal URLS allowed to check
+  max_content_size: 52428800   # Maximal size of the content returned by a request (50MB)
+  max_retries: 3               # How often should the request repeated on failure
+  db_path: "./hashes.db"       # SQLite3 database where webpage hashes are stored
 ```
 
 ### Request Headers
@@ -84,13 +87,13 @@ python src/webhash_monitor/main.py url=http://example.com callback=pushbullet
 
 ```
 1. Fetch webpage content via HTTP GET
-2. Compute SHA256(content) → hex digest
-3. Generate filesystem path: hash_dir / MD5(url).hash
+2. Compute SHA256(content) -> hex digest
+3. Generate database entry: SHA256(url).hash
 4. Compare current hash with stored hash:
    - Match    → [UNCHANGED]
    - Diverge  → [CHANGED]
    - No file  → [FIRST RUN]
-5. Update hash file with current digest
+5. Update database entry with current digest and timestamp
 ```
 
 ## Output
