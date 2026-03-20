@@ -45,10 +45,6 @@ def send_pushbullet_note(url: str) -> dict:
     """
     Send a Pushbullet notification indicating that a monitored URL has changed.
 
-    This function reads the Pushbullet API key from the environment variable
-    `PUSHBULLET_API_KEY` (typically loaded from a .env file) and sends a
-    "note" type push via the Pushbullet REST API.
-
     Args:
         url (str): The URL that triggered the notification (e.g., a changed webpage).
 
@@ -61,7 +57,6 @@ def send_pushbullet_note(url: str) -> dict:
 
     Example:
         >>> send_pushbullet_note("https://example.com")
-        {'iden': '...', 'type': 'note', ...}
     """
     title = "Webhash-Monitor"
     body = f"URL changed: {url}"
@@ -89,3 +84,43 @@ def send_pushbullet_note(url: str) -> dict:
     response.raise_for_status()
 
     return response.json()
+
+
+def send_telegram_msg(url: str):
+    """
+    Send a Telegram message indicating that a monitored URL has changed.
+
+    Args:
+        url (str): The URL that triggered the notification (e.g., a changed webpage).
+
+    Returns:
+        dict: The JSON response returned by the Telegram API.
+
+    Raises:
+        ValueError: If the API key is not found in the environment.
+        requests.HTTPError: If the HTTP request to Telegram fails.
+
+    Example:
+        >>> send_telegram_msg("https://example.com")
+    """
+    msg = f"URL changed: {url}"
+
+    # Read API key from environment
+    api_key = os.getenv("TELEGRAM_API_KEY")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    if not api_key or not chat_id:
+        raise ValueError("Missing TELEGRAM_API_KEY or TELEGRAM_CHAT_ID in .env")
+
+    api_url = f"https://api.telegram.org/bot{api_key}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": msg,
+        "parse_mode": "HTML",  # Optional: allows bold/italic tags
+    }
+    response = requests.post(api_url, data=payload)
+    return response.json()
+
+
+if __name__ == "__main__":
+    send_pushbullet_note("test.url")
+    send_telegram_msg("test.url")

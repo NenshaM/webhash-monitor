@@ -22,7 +22,7 @@ WebHash Monitor provides deterministic detection of webpage modifications throug
 ## Installation
 
 ### Prerequisites
-- Python 3.11+
+- Python 3.11, 3.12, 3.13 or 3.14
 - pip package manager
 
 ### Setup
@@ -31,11 +31,6 @@ git clone https://github.com/NenshaM/webhash-monitor.git
 cd webhash-monitor
 pip install -r requirements.txt
 ```
-
-### Dependencies
-- `requests`: HTTP client library
-- `hydra-core`: Configuration framework
-- `omegaconf`: YAML/dataclass support
 
 ## Usage
 
@@ -51,7 +46,7 @@ python src/webhash_monitor/main.py urls='["http://example.com","http://example.o
 
 ## Configuration
 
-Configuration is managed through `src/config.yaml` with Hydra CLI overrides:
+Configuration is managed through `src/webhash_monitor/config.yaml` with Hydra CLI overrides:
 
 ### Global Options
 ```yaml
@@ -81,6 +76,9 @@ python src/webhash_monitor/main.py url=http://example.com request_headers.User-A
 
 # PushBullet Callback
 python src/webhash_monitor/main.py url=http://example.com callback=pushbullet
+
+# Telegram Callback
+python src/webhash_monitor/main.py url=http://example.com callback=telegram
 ```
 
 ## Workflow
@@ -94,6 +92,7 @@ python src/webhash_monitor/main.py url=http://example.com callback=pushbullet
    - Diverge  → [CHANGED]
    - No file  → [FIRST RUN]
 5. Update database entry with current digest and timestamp
+6. Executes callback (optional)
 ```
 
 ## Output

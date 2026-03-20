@@ -63,15 +63,21 @@ def main(cfg: DictConfig) -> None:
         max_content_size=cfg.options.max_content_size,
     )
 
-    callback = None
-    if cfg.get("callback"):
+    # process callback option
+    callback = cfg.get("callback")
+    if callable:
         if str(cfg.callback).lower() == "pushbullet":
             from callbacks import send_pushbullet_note
 
             callback = send_pushbullet_note
-        else:
-            print("Invalid callback: try 'pushbullet")
+        elif str(cfg.callback).lower() == "telegram":
+            from callbacks import send_telegram_msg
 
+            callback = send_telegram_msg
+        else:
+            print("Invalid callback: try `pushbullet` or `telegram`")
+
+    # process url(s) and check respective webpage(s) for changes
     if cfg.get("url"):
         monitor.check_website_change(cfg.url, callback=callback)
     elif cfg.get("urls"):
