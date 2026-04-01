@@ -67,11 +67,11 @@ def main(cfg: DictConfig) -> None:
     callback = cfg.get("callback")
     if callback:
         if str(cfg.callback).lower() == "pushbullet":
-            from .callbacks import send_pushbullet_note
+            from callbacks import send_pushbullet_note
 
             callback = send_pushbullet_note
         elif str(cfg.callback).lower() == "telegram":
-            from .callbacks import send_telegram_msg
+            from callbacks import send_telegram_msg
 
             callback = send_telegram_msg
         else:
