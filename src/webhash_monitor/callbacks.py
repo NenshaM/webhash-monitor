@@ -22,12 +22,6 @@ Environment:
         API token used to authenticate with the Pushbullet service.
         Typically loaded from a `.env` file.
 
-Design Notes:
-    - Callbacks are designed to be lightweight and non-blocking.
-    - They should not raise unhandled exceptions that disrupt monitoring.
-    - Additional callbacks (e.g., email, Slack, webhook) can be added by
-      following the same function signature.
-
 Author: NenshaM
 License: GPL v3
 """

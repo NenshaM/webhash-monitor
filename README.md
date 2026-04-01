@@ -32,7 +32,25 @@ cd webhash-monitor
 pip install -r requirements.txt
 ```
 
-## Usage
+## Usage as Package
+
+Install the package using
+```bash
+pip install .
+``` 
+and use it as follows:
+
+```python
+from pathlib import Path
+from webhash_monitor import WebhashMonitor, send_telegram_msg
+
+monitor = WebhashMonitor(
+        db_path=Path("./hashes.db"),
+)
+monitor.check_website_change(url='http://example.com', callback=send_telegram_msg)
+```
+
+## Usage as Script
 
 ### Single URL Monitoring
 ```bash

@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from webhash_monitor.WebhashMonitor import WebHashMonitor
+from webhash_monitor.WebhashMonitor import WebhashMonitor
 
 
 @pytest.fixture
@@ -13,7 +13,7 @@ def tmp_hash_db(tmp_path):
 
 
 def test_cleanup_oldest_entries(tmp_hash_db):
-    monitor = WebHashMonitor(tmp_hash_db, max_urls=2)
+    monitor = WebhashMonitor(tmp_hash_db, max_urls=2)
 
     # insert 3 entries with increasing timestamps
     with sqlite3.connect(tmp_hash_db) as conn:

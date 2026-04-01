@@ -4,7 +4,7 @@ import sqlite3
 import pytest
 import requests
 
-from webhash_monitor.WebhashMonitor import Status, WebHashMonitor
+from webhash_monitor.WebhashMonitor import Status, WebhashMonitor
 
 
 class DummyResponse:
@@ -30,11 +30,11 @@ def tmp_hash_db(tmp_path):
 def test_compute_sha256():
     data = b"hello"
     expected = hashlib.sha256(data).hexdigest()
-    assert WebHashMonitor.compute_sha256(data) == expected
+    assert WebhashMonitor.compute_sha256(data) == expected
 
 
 def test_fetch_webpage_success(monkeypatch, tmp_hash_db):
-    monitor = WebHashMonitor(tmp_hash_db)
+    monitor = WebhashMonitor(tmp_hash_db)
     content = b"abc"
 
     def fake_get(url, headers, timeout, stream):
@@ -45,7 +45,7 @@ def test_fetch_webpage_success(monkeypatch, tmp_hash_db):
 
 
 def test_fetch_webpage_failure(monkeypatch, caplog, tmp_hash_db):
-    monitor = WebHashMonitor(tmp_hash_db)
+    monitor = WebhashMonitor(tmp_hash_db)
 
     def fake_get(url, headers, timeout, stream):
         raise requests.RequestException("fail")
@@ -57,7 +57,7 @@ def test_fetch_webpage_failure(monkeypatch, caplog, tmp_hash_db):
 
 
 def test_check_website_change_first_run(tmp_hash_db, monkeypatch):
-    monitor = WebHashMonitor(tmp_hash_db)
+    monitor = WebhashMonitor(tmp_hash_db)
     content = b"first content"
     monkeypatch.setattr(monitor, "fetch_webpage", lambda url: content)
 
@@ -73,11 +73,11 @@ def test_check_website_change_first_run(tmp_hash_db, monkeypatch):
         ).fetchone()
 
     assert row is not None
-    assert row[0] == WebHashMonitor.compute_sha256(content)
+    assert row[0] == WebhashMonitor.compute_sha256(content)
 
 
 def test_check_website_change_unchanged(tmp_hash_db, monkeypatch):
-    monitor = WebHashMonitor(tmp_hash_db)
+    monitor = WebhashMonitor(tmp_hash_db)
 
     content = b"same"
     url = "http://a"
@@ -87,7 +87,7 @@ def test_check_website_change_unchanged(tmp_hash_db, monkeypatch):
         monitor._init_db()
         conn.execute(
             "INSERT INTO hashes (url_hash, content_hash) VALUES (?, ?)",
-            (monitor.compute_sha256(url), WebHashMonitor.compute_sha256(content)),
+            (monitor.compute_sha256(url), WebhashMonitor.compute_sha256(content)),
         )
 
     monkeypatch.setattr(monitor, "fetch_webpage", lambda url: content)
@@ -97,7 +97,7 @@ def test_check_website_change_unchanged(tmp_hash_db, monkeypatch):
 
 
 def test_check_website_change_changed(tmp_hash_db, monkeypatch):
-    monitor = WebHashMonitor(tmp_hash_db)
+    monitor = WebhashMonitor(tmp_hash_db)
 
     old = b"old"
     new = b"new"
@@ -108,7 +108,7 @@ def test_check_website_change_changed(tmp_hash_db, monkeypatch):
         monitor._init_db()
         conn.execute(
             "INSERT INTO hashes (url_hash, content_hash) VALUES (?, ?)",
-            (monitor.compute_sha256(url), WebHashMonitor.compute_sha256(old)),
+            (monitor.compute_sha256(url), WebhashMonitor.compute_sha256(old)),
         )
 
     monkeypatch.setattr(monitor, "fetch_webpage", lambda url: new)
@@ -123,18 +123,18 @@ def test_check_website_change_changed(tmp_hash_db, monkeypatch):
             "SELECT content_hash FROM hashes WHERE url_hash = ?", (url_hash,)
         ).fetchone()
 
-    assert row[0] == WebHashMonitor.compute_sha256(new)
+    assert row[0] == WebhashMonitor.compute_sha256(new)
 
 
 def test_check_website_change_fetch_error(tmp_hash_db, monkeypatch):
-    monitor = WebHashMonitor(tmp_hash_db)
+    monitor = WebhashMonitor(tmp_hash_db)
     monkeypatch.setattr(monitor, "fetch_webpage", lambda url: None)
     status = monitor.check_website_change("http://a")
     assert status == Status.FETCH_ERROR
 
 
 def test_check_website_onchange_callback(tmp_hash_db, monkeypatch):
-    monitor = WebHashMonitor(tmp_hash_db)
+    monitor = WebhashMonitor(tmp_hash_db)
 
     old = b"old"
     new = b"new"
@@ -145,7 +145,7 @@ def test_check_website_onchange_callback(tmp_hash_db, monkeypatch):
         monitor._init_db()
         conn.execute(
             "INSERT INTO hashes (url_hash, content_hash) VALUES (?, ?)",
-            (monitor.compute_sha256(url), WebHashMonitor.compute_sha256(old)),
+            (monitor.compute_sha256(url), WebhashMonitor.compute_sha256(old)),
         )
 
     monkeypatch.setattr(monitor, "fetch_webpage", lambda url: new)

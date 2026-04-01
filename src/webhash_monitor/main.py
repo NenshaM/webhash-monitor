@@ -24,7 +24,7 @@ from pathlib import Path
 
 import hydra
 from omegaconf import DictConfig
-from WebhashMonitor import WebHashMonitor
+from WebhashMonitor import WebhashMonitor
 
 
 # -----------------------------------------------------------------------------
@@ -54,7 +54,7 @@ def main(cfg: DictConfig) -> None:
     timeout = cfg.options.timeout_seconds
     headers = cfg.get("request_headers", {})
 
-    monitor = WebHashMonitor(
+    monitor = WebhashMonitor(
         db_path=db_path,
         timeout=timeout,
         headers=headers,
@@ -65,13 +65,13 @@ def main(cfg: DictConfig) -> None:
 
     # process callback option
     callback = cfg.get("callback")
-    if callable:
+    if callback:
         if str(cfg.callback).lower() == "pushbullet":
-            from callbacks import send_pushbullet_note
+            from .callbacks import send_pushbullet_note
 
             callback = send_pushbullet_note
         elif str(cfg.callback).lower() == "telegram":
-            from callbacks import send_telegram_msg
+            from .callbacks import send_telegram_msg
 
             callback = send_telegram_msg
         else:

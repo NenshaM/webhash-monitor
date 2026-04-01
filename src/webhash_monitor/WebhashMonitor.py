@@ -2,13 +2,17 @@
 """
 WebhashMonitor.py
 
-A secure, lightweight webpage change detection tool using SHA256 hashing.
+A lightweight webpage change detection tool using SHA256 hashing.
 
-The application workflow:
-    1. Downloads webpage content securely via HTTP(S).
-    2. Computes a SHA256 hash of the response body.
-    3. Stores the hash locally in a SQLite database.
-    4. Detects changes between runs and logs them for auditing.
+The workflow:
+    1. Fetch webpage content via HTTP GET
+    2. Compute SHA256(content) -> hex digest
+    3. Generate database entry: SHA256(url).hash
+    4. Compare current hash with stored hash:
+        - Match    → [UNCHANGED]
+        - Diverge  → [CHANGED]
+        - No file  → [FIRST RUN]
+    5. Update database entry with current digest and timestamp
 
 Author: NenshaM
 License: GPL v3
@@ -39,7 +43,7 @@ class Status(Enum):
 # -----------------------------------------------------------------------------
 # WebHashMonitor Class
 # -----------------------------------------------------------------------------
-class WebHashMonitor:
+class WebhashMonitor:
     """
     Monitor webpages for changes using SHA256 hashing with resource controls.
 

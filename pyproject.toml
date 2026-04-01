@@ -1,14 +1,48 @@
+[build-system]
+requires = ["setuptools>=77.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "webhash-monitor"
-version = "1.6.0"
+version = "1.6.1"
 description = "A secure, lightweight webpage change detection tool using SHA256 hashing."
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "GPL-3.0-or-later"}
+license = "GPL-3.0-or-later"
 authors = [
     {name = "NenshaM"}
 ]
 keywords = ["monitoring", "web", "SHA256", "hashing", "webhash"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: System :: Monitoring",
+]
+dependencies = [
+    "hydra-core>=1.3",
+    "requests>=2.31",
+    "python-dotenv>=1.2.2"
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.14.4",
+    "pytest>=8.3.4"
+]
+
+[project.urls]
+Homepage = "https://github.com/NenshaM/webhash-monitor"
+Documentation = "https://github.com/NenshaM/webhash-monitor#readme"
+Repository = "https://github.com/NenshaM/webhash-monitor.git"
+Issues = "https://github.com/NenshaM/webhash-monitor/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.ruff]
 line-length = 88
