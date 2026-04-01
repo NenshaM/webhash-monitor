@@ -17,11 +17,7 @@ Author: NenshaM
 License: GPL v3
 """
 
-from .WebhashMonitor import WebhashMonitor
 from .callbacks import send_pushbullet_note, send_telegram_msg
+from .WebhashMonitor import WebhashMonitor
 
-__all__ = [
-    "WebhashMonitor", 
-    
-    "send_pushbullet_note", "send_telegram_msg"
-]
+__all__ = ["WebhashMonitor", "send_pushbullet_note", "send_telegram_msg"]
