@@ -97,6 +97,9 @@ python src/webhash_monitor/main.py url=http://example.com callback=pushbullet
 
 # Telegram Callback
 python src/webhash_monitor/main.py url=http://example.com callback=telegram
+
+# Hash a custom part of the website
+python src/webhash_monitor/main.py url=http://example.com dom-selector='div'
 ```
 
 ## Workflow
@@ -127,5 +130,4 @@ Change events are logged at WARNING level for automated alerting integration.
 
 ## Limitations / To Do's
 
-- **Content-only detection**: Monitors raw content; style/layout changes without HTML modification are not detected
 - **No authentication**: Requires pre-configuration of auth tokens via headers if protected resources are monitored

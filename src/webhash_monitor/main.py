@@ -49,6 +49,8 @@ def main(cfg: DictConfig) -> None:
         request_headers          : dict
         url                      : str (single URL, optional)
         urls                     : list[str] (optional)
+        dom-selector             : str
+        callback                 : "pushbullet" | "telegram"
     """
     db_path = Path(cfg.options.db_path)
     timeout = cfg.options.timeout_seconds
@@ -79,12 +81,20 @@ def main(cfg: DictConfig) -> None:
 
     # process url(s) and check respective webpage(s) for changes
     if cfg.get("url"):
-        monitor.check_website_change(cfg.url, callback=callback)
+        urls = [cfg.url]
     elif cfg.get("urls"):
-        for u in cfg.urls:
-            monitor.check_website_change(url=u, callback=callback)
+        urls = cfg.urls
     else:
         print("No URL provided. Use 'url=' or 'urls=' argument.")
+        exit(1)
+
+    for u in urls:
+        monitor.check_website_change(
+            url=u,
+            # dom_selector='*',
+            dom_selector=cfg.get("dom-selector", default_value="*"),
+            callback=callback,
+        )
 
 
 # -----------------------------------------------------------------------------

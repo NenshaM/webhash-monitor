@@ -8,9 +8,10 @@ from webhash_monitor.WebhashMonitor import Status, WebhashMonitor
 
 
 class DummyResponse:
-    def __init__(self, content: bytes, status_code: int = 200) -> None:
+    def __init__(self, content: bytes, status_code: int = 200, *args, **kwargs) -> None:
         self.content = content
         self.status_code = status_code
+        self.headers = {"Content-Length": len(content)}
 
     def raise_for_status(self) -> None:
         if self.status_code != 200:
@@ -44,6 +45,17 @@ def test_fetch_webpage_success(monkeypatch, tmp_hash_db):
     assert monitor.fetch_webpage("http://foo") == content
 
 
+def test_fetch_webpage_dom_selector(monkeypatch, tmp_hash_db):
+    monitor = WebhashMonitor(tmp_hash_db)
+    content = b"<html>abc<p>abc</p></html>"
+
+    def fake_get(url, headers, timeout, stream):
+        return DummyResponse(content)
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    assert monitor.fetch_webpage("http://foo", dom_selector="html p") == b"abc"
+
+
 def test_fetch_webpage_failure(monkeypatch, caplog, tmp_hash_db):
     monitor = WebhashMonitor(tmp_hash_db)
 
@@ -59,7 +71,7 @@ def test_fetch_webpage_failure(monkeypatch, caplog, tmp_hash_db):
 def test_check_website_change_first_run(tmp_hash_db, monkeypatch):
     monitor = WebhashMonitor(tmp_hash_db)
     content = b"first content"
-    monkeypatch.setattr(monitor, "fetch_webpage", lambda url: content)
+    monkeypatch.setattr(monitor, "fetch_webpage", lambda url, dom_selector: content)
 
     url = "http://a"
     url_hash = monitor.compute_sha256(url)
@@ -90,7 +102,7 @@ def test_check_website_change_unchanged(tmp_hash_db, monkeypatch):
             (monitor.compute_sha256(url), WebhashMonitor.compute_sha256(content)),
         )
 
-    monkeypatch.setattr(monitor, "fetch_webpage", lambda url: content)
+    monkeypatch.setattr(monitor, "fetch_webpage", lambda url, dom_selector: content)
 
     status = monitor.check_website_change(url)
     assert status == Status.UNCHANGED
@@ -111,7 +123,7 @@ def test_check_website_change_changed(tmp_hash_db, monkeypatch):
             (monitor.compute_sha256(url), WebhashMonitor.compute_sha256(old)),
         )
 
-    monkeypatch.setattr(monitor, "fetch_webpage", lambda url: new)
+    monkeypatch.setattr(monitor, "fetch_webpage", lambda url, dom_selector: new)
 
     status = monitor.check_website_change(url)
     url_hash = monitor.compute_sha256(url)
@@ -128,7 +140,7 @@ def test_check_website_change_changed(tmp_hash_db, monkeypatch):
 
 def test_check_website_change_fetch_error(tmp_hash_db, monkeypatch):
     monitor = WebhashMonitor(tmp_hash_db)
-    monkeypatch.setattr(monitor, "fetch_webpage", lambda url: None)
+    monkeypatch.setattr(monitor, "fetch_webpage", lambda url, dom_selector: None)
     status = monitor.check_website_change("http://a")
     assert status == Status.FETCH_ERROR
 
@@ -148,7 +160,7 @@ def test_check_website_onchange_callback(tmp_hash_db, monkeypatch):
             (monitor.compute_sha256(url), WebhashMonitor.compute_sha256(old)),
         )
 
-    monkeypatch.setattr(monitor, "fetch_webpage", lambda url: new)
+    monkeypatch.setattr(monitor, "fetch_webpage", lambda url, dom_selector: new)
 
     cb_successful = False
 

@@ -28,6 +28,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
+from bs4 import BeautifulSoup
 
 
 # -----------------------------------------------------------------------------
@@ -158,7 +159,7 @@ class WebhashMonitor:
     # ------------------------------------------------------------------
     # network
     # ------------------------------------------------------------------
-    def fetch_webpage(self, url: str) -> bytes | None:
+    def fetch_webpage(self, url: str, dom_selector: str = "*") -> bytes | None:
         """
         Fetch the content of a webpage with retries and resource limits.
 
@@ -166,6 +167,8 @@ class WebhashMonitor:
         ----------
         url : str
             The webpage URL to fetch.
+        dom_selector : str, optional
+            Which dom element should be used for update checking
 
         Returns
         -------
@@ -198,13 +201,19 @@ class WebhashMonitor:
                     )
                     response.raise_for_status()
 
-                    content = b""
-                    for chunk in response.iter_content(4096):
-                        content += chunk
-                        if len(content) > self.max_content_size:
-                            raise ValueError("Response too large")
+                    length = response.headers.get("Content-Length")
+                    if length and int(length) > self.max_content_size:
+                        raise ValueError("Response too large")
 
-                        return content
+                    html = response.content
+                    soup = BeautifulSoup(html, "html.parser")
+
+                    element = soup.select(dom_selector, limit=1)
+                    if len(element) != 0:
+                        text = element[0].get_text(strip=True)
+                        return text.encode("UTF-8")
+                    else:
+                        return html
 
                 except (requests.RequestException, ValueError):
                     if attempt == self.retries:
@@ -252,7 +261,7 @@ class WebhashMonitor:
         )
 
     def check_website_change(
-        self, url: str, callback: Callable | None = None
+        self, url: str, callback: Callable | None = None, dom_selector: str = "*"
     ) -> Status:
         """
         Check if a webpage has changed since the last run and update its hash.
@@ -261,6 +270,8 @@ class WebhashMonitor:
         ----------
         url : str
             The webpage URL to monitor.
+        dom_selector : str, optional
+            Which dom element should be used for update checking
         callback: Callable, optional
             Callback function which gets executed if status is `Status.CHANGED`
 
@@ -273,7 +284,7 @@ class WebhashMonitor:
             - Status.CHANGED     → Content has changed since last run.
             - Status.FETCH_ERROR → Page could not be retrieved.
         """
-        content = self.fetch_webpage(url)
+        content = self.fetch_webpage(url=url, dom_selector=dom_selector)
         if content is None:
             return Status.FETCH_ERROR
 
