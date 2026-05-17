@@ -4,8 +4,8 @@ import sqlite3
 import pytest
 import requests
 
-from webhash_monitor.WebhashMonitor import Status, WebhashMonitor
 from webhash_monitor.callbacks import send_telegram_msg
+from webhash_monitor.WebhashMonitor import Status, WebhashMonitor
 
 
 class DummyResponse:
