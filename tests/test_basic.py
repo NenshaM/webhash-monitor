@@ -5,6 +5,7 @@ import pytest
 import requests
 
 from webhash_monitor.WebhashMonitor import Status, WebhashMonitor
+from webhash_monitor.callbacks import send_telegram_msg
 
 
 class DummyResponse:
@@ -176,3 +177,10 @@ def test_check_website_onchange_callback(tmp_hash_db, monkeypatch):
     status = monitor.check_website_change(url=url, callback=callback)
     assert status == Status.UNCHANGED
     assert not cb_successful
+
+
+def test_telegram_callback():
+    try:
+        send_telegram_msg("test.url")
+    except ValueError as e:
+        print(e)
